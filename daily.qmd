@@ -1,0 +1,468 @@
+---
+title: "Daily Cohort"
+author: "Fajar Nugroho"
+execute: 
+  echo: false 
+  warning: false
+  message: false
+---
+
+## Cohort
+
+```{r}
+library(dplyr) #handy data manipulation
+library(ggplot2) #our today's super star
+library(stringr) #to manipulate string date
+library(ggthemes) #many nice themes
+library(mdthemes) #handy text in plot formatting
+library(gghighlight) #will abuse it a bit to show nice label
+library(cellranger)
+library(spreadr)
+library(tidyr)
+library(tidyverse)
+library(reactable)
+library(googlesheets4)
+library(lubridate)
+library(xts)
+library(RColorBrewer)
+library(scales)
+library(writexl)
+library(htmltools) # for building div/links
+library(paletteer) # for all the palettes
+library(crosstalk)
+```
+
+```{r, eval=TRUE}
+df <- read.csv("data/relay-food.csv")
+```
+
+
+```{r}
+# Apparently, the date format in the column`OrderDate` is not standard yet. Therefore we need to adjust it.
+```
+
+```{r}
+# adjust date formatting of OrderDate column
+df$OrderDate = format(as.Date(df$OrderDate, '%m/%d/%Y'), '%Y/%m/%d')
+df$OrderDate = gsub('00','20',df$OrderDate)
+```
+
+
+```{r}
+# Next, since we want to look at the monthly cohort, we need to derive `OrderMonth` column from `OrderDate` column.
+```
+
+
+```{r}
+# create OrderMonth column from OrderDate (to  make monthly cohort)
+df$OrderMonth = str_sub(df$OrderDate,end = 7)
+```
+
+```{r}
+# Cohort analysis requires cohort group information for each user in the dataset, so we build one.
+```
+
+
+```{r}
+# create reference data frame of cohort group (month level)
+cohort_group_df = df %>% group_by(UserId) %>% 
+                    summarize(CohortGroup = min(OrderDate))
+cohort_group_df$CohortGroup =  str_sub(cohort_group_df$CohortGroup,                    end = 7) 
+# join with the initial df
+df = inner_join(df, cohort_group_df, by = 'UserId')
+```
+
+```{r}
+# Next, we create a reference dataframe containing the total users for each cohort group, as well as the monthly count of users who made purchases.
+```
+
+
+```{r}
+# create reference data frame of total users for each cohort group
+base_cohort_df = df %>% group_by(CohortGroup) %>%
+  summarise(
+   TotalUsers = n_distinct(UserId)
+  )
+# create purchase activity data frame
+activity_cohort_df = df %>% group_by(CohortGroup, OrderMonth) %>%
+ summarise(
+  BuyingUsers = n_distinct(UserId)
+ )
+# join activity_cohort_df and base_cohort_df
+user_cohort_df = inner_join(activity_cohort_df, base_cohort_df, 
+                  by = 'CohortGroup')
+```
+
+```{r}
+# Data checkpoint. What we have got so far?
+```
+
+
+```{r}
+# user_cohort_df %>% head(5)
+```
+
+```{r}
+# Notice `OrderMonth` column is still in string format as above. For plotting, we want it to be in integer format to become the x-axis.
+```
+
+
+```{r}
+# transform OrderMonth to integer
+user_cohort_df = user_cohort_df %>% group_by(CohortGroup) %>% mutate(MonthNumber = 1:n())
+```
+
+```{r}
+# Finally, we will only plot a subset of the data to avoid overplotting.
+```
+
+
+```{r}
+# subsetting the data
+plot_user_cohort_df = inner_join(base_cohort_df[seq(1,11,2),c("CohortGroup")], user_cohort_df, by = "CohortGroup")
+```
+
+```{r}
+# In the plot to be drawn, I wanted to have nice legends where they are put right at the end of the lines. To do so, I use gghighlight package. I know this is somewhat hacky, so please comment below if you guys know a more proper way to do it.
+```
+
+
+```{r}
+# dummy column for in-place legend
+plot_user_cohort_df$dummy_col = 1
+```
+
+```{r}
+# Alright, we are done with data preparation for the line plot. Below is the final form of the data.
+```
+
+
+```{r}
+# plot_user_cohort_df %>% head(5)
+```
+
+```{r}
+# So, we are ready to have our first plot!
+```
+
+
+```{r}
+# plotting line plot
+plot1 <- ggplot(plot_user_cohort_df) +
+  geom_line(aes(x = MonthNumber,
+                y = BuyingUsers/TotalUsers,
+                col = CohortGroup)) +
+  gghighlight(dummy_col == 1) +
+  scale_x_continuous(breaks = seq(from = 1, to = 15, by = 2)) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  mdthemes::md_theme_solarized() +
+  labs(
+    title = "**Monthly User Purchasing Cohort**",
+    caption = "*Data: Relay Food order details (Source: github.com/ethen8181)*", 
+    x = "K-th Month",
+    y = "Retention",
+    col = "Cohort Group"
+  )
+```
+
+```{r}
+# create base dataframe for heat map visualization
+cohort_heatmap_df = user_cohort_df %>% select(CohortGroup, MonthNumber, BuyingUsers) %>%
+          spread(MonthNumber, BuyingUsers)
+# inspect data
+# cohort_heatmap_df %>% head(5) 
+```
+
+```{r}
+# the percentage version of the dataframe
+cohort_heatmap_df_pct = data.frame(
+  cohort_heatmap_df$CohortGroup,
+  cohort_heatmap_df[,2:ncol(cohort_heatmap_df)] / cohort_heatmap_df[["1"]]
+)
+# assign the same column names
+colnames(cohort_heatmap_df_pct) = colnames(cohort_heatmap_df)
+```
+
+
+```{r}
+plot_data_abs = gather(cohort_heatmap_df, "MonthNumber", "BuyingUsers", 2:ncol(cohort_heatmap_df))
+plot_data_pct = gather(cohort_heatmap_df_pct, "MonthNumber", "Retention", 2:ncol(cohort_heatmap_df_pct))
+```
+
+
+```{r}
+label_names = c(plot_data_abs$BuyingUsers[1:(ncol(cohort_heatmap_df)-1)],plot_data_pct$Retention[(ncol(cohort_heatmap_df_pct)):(nrow(plot_data_pct))])
+```
+
+
+```{r}
+# beautify percentage labels
+beauty_print <- function(n) {
+  case_when( n <= 1  ~ sprintf("%1.0f %%", n*100),
+             n >  1  ~ as.character(n),
+             TRUE    ~ " ") # for NA values, skip the label
+}
+# create dataframe ready for plotting
+plot_data = data.frame(
+  CohortGroup = plot_data_pct$CohortGroup,
+  MonthNumber = plot_data_pct$MonthNumber,
+  Retention = plot_data_pct$Retention,
+  Label = beauty_print(label_names)
+)
+plot_data$MonthNumber = as.numeric(plot_data$MonthNumber)
+```
+
+
+```{r}
+plot_bi_muamalat <- read_sheet("https://docs.google.com/spreadsheets/d/1utMFZfdIcn3I2DakMf0NyZ2QNELUcaorJA-GjZE6Nxk/edit#gid=123180458", range = "cohort-bank-muamalat-bi-analytics")
+
+plot_bi_muamalat$Label = beauty_print(plot_bi_muamalat$Label)
+
+plot_dm_erajaya <- read_sheet("https://docs.google.com/spreadsheets/d/1utMFZfdIcn3I2DakMf0NyZ2QNELUcaorJA-GjZE6Nxk/edit#gid=497909851", range = "cohort-erajaya-dm")
+
+plot_dm_erajaya$Label = beauty_print(plot_dm_erajaya$Label)
+
+plot_ds_idx <- read_sheet("https://docs.google.com/spreadsheets/d/1utMFZfdIcn3I2DakMf0NyZ2QNELUcaorJA-GjZE6Nxk/edit#gid=817098153", range = "cohort-idx-ds")
+
+plot_ds_idx$Label = beauty_print(plot_ds_idx$Label)
+
+plot_be_investree <- read_sheet("https://docs.google.com/spreadsheets/d/1utMFZfdIcn3I2DakMf0NyZ2QNELUcaorJA-GjZE6Nxk/edit#gid=2070693287", range = "cohort-investree-be")
+
+plot_be_investree$Label = beauty_print(plot_be_investree$Label)
+
+plot_fs_investree <- read_sheet("https://docs.google.com/spreadsheets/d/1utMFZfdIcn3I2DakMf0NyZ2QNELUcaorJA-GjZE6Nxk/edit#gid=918789044", range = "cohort-investree-fs")
+
+plot_fs_investree$Label = beauty_print(plot_fs_investree$Label)
+
+plot_cp_jackmall <- read_sheet("https://docs.google.com/spreadsheets/d/1utMFZfdIcn3I2DakMf0NyZ2QNELUcaorJA-GjZE6Nxk/edit#gid=2109982603", range = "cohort-jackmall-cp")
+
+plot_cp_jackmall$Label = beauty_print(plot_cp_jackmall$Label)
+
+plot_bda_kimiafarma <- read_sheet("https://docs.google.com/spreadsheets/d/1utMFZfdIcn3I2DakMf0NyZ2QNELUcaorJA-GjZE6Nxk/edit#gid=811593669", range = "cohort-kimiafarma-bda")
+
+plot_bda_kimiafarma$Label = beauty_print(plot_bda_kimiafarma$Label)
+
+plot_seo_niagahoster <- read_sheet("https://docs.google.com/spreadsheets/d/1utMFZfdIcn3I2DakMf0NyZ2QNELUcaorJA-GjZE6Nxk/edit#gid=929047325", range = "cohort-niagahoster-seo")
+
+plot_seo_niagahoster$Label = beauty_print(plot_seo_niagahoster$Label)
+
+plot_overall <- read_sheet("https://docs.google.com/spreadsheets/d/1utMFZfdIcn3I2DakMf0NyZ2QNELUcaorJA-GjZE6Nxk/edit#gid=1177792059", range = "cohort-overall")
+
+plot_overall$Label = beauty_print(plot_overall$Label)
+```
+
+
+### Cohort Overall
+
+```{r}
+ggplot(plot_overall) +
+  geom_raster(aes(x = DayNumber,
+                  y = reorder(CohortGroup, desc(CohortGroup)),
+                  fill = Retention)) +
+  scale_fill_continuous(guide = FALSE, type = "gradient",
+                        low = "deepskyblue", high = "darkblue") +
+  scale_x_continuous(breaks = seq(from = 1, to = 15, by = 1),
+                     expand = c(0,0)) +
+  geom_text(aes(x = DayNumber,
+                y = reorder(CohortGroup, desc(CohortGroup)),
+                label = Label), col = "white") +
+  mdthemes::md_theme_gray() +
+  labs(
+    title = "**Daily User Retention VIX-Overall**",
+    caption = "*Data: Cohort & user retention (Source: google analytis)*", 
+    x = "D-th Day",
+    y = "Cohort Group"
+  )
+```
+
+### Cohort BI Analyst Bank Muamalat
+
+```{r}
+# plotting heatmap
+ggplot(plot_bi_muamalat) +
+  geom_raster(aes(x = DayNumber,
+                  y = reorder(CohortGroup, desc(CohortGroup)),
+                  fill = Retention)) +
+  scale_fill_continuous(guide = FALSE, type = "gradient",
+                        low = "deepskyblue", high = "darkblue") +
+  scale_x_continuous(breaks = seq(from = 1, to = 15, by = 1),
+                     expand = c(0,0)) +
+  geom_text(aes(x = DayNumber,
+                y = reorder(CohortGroup, desc(CohortGroup)),
+                label = Label), col = "white") +
+  mdthemes::md_theme_gray() +
+  labs(
+    title = "**Daily User Retention VIX-BI Analyst-Bank Muamalat**",
+    caption = "*Data: Cohort & user retention (Source: google analytis)*", 
+    x = "D-th Day",
+    y = "Cohort Group"
+  )
+```
+
+### Cohort Digital Marketing Erajaya
+
+```{r}
+# plotting heatmap
+ggplot(plot_dm_erajaya) +
+  geom_raster(aes(x = DayNumber,
+                  y = reorder(CohortGroup, desc(CohortGroup)),
+                  fill = Retention)) +
+  scale_fill_continuous(guide = FALSE, type = "gradient",
+                        low = "deepskyblue", high = "darkblue") +
+  scale_x_continuous(breaks = seq(from = 1, to = 15, by = 1),
+                     expand = c(0,0)) +
+  geom_text(aes(x = DayNumber,
+                y = reorder(CohortGroup, desc(CohortGroup)),
+                label = Label), col = "white") +
+  mdthemes::md_theme_gray() +
+  labs(
+    title = "**Daily User Retention VIX-DM-Erajaya**",
+    caption = "*Data: Cohort & user retention (Source: google analytis)*", 
+    x = "D-th Day",
+    y = "Cohort Group"
+  )
+```
+
+### Cohort Data Science ID/X Partner
+
+```{r}
+# plotting heatmap
+ggplot(plot_ds_idx) +
+  geom_raster(aes(x = DayNumber,
+                  y = reorder(CohortGroup, desc(CohortGroup)),
+                  fill = Retention)) +
+  scale_fill_continuous(guide = FALSE, type = "gradient",
+                        low = "deepskyblue", high = "darkblue") +
+  scale_x_continuous(breaks = seq(from = 1, to = 15, by = 1),
+                     expand = c(0,0)) +
+  geom_text(aes(x = DayNumber,
+                y = reorder(CohortGroup, desc(CohortGroup)),
+                label = Label), col = "white") +
+  mdthemes::md_theme_gray() +
+  labs(
+    title = "**Daily User Retention VIX-DS-ID/X**",
+    caption = "*Data: Cohort & user retention (Source: google analytis)*", 
+    x = "D-th Day",
+    y = "Cohort Group"
+  )
+```
+
+### Cohort Backend Investree
+
+```{r}
+# plotting heatmap
+ggplot(plot_be_investree) +
+  geom_raster(aes(x = DayNumber,
+                  y = reorder(CohortGroup, desc(CohortGroup)),
+                  fill = Retention)) +
+  scale_fill_continuous(guide = FALSE, type = "gradient",
+                        low = "deepskyblue", high = "darkblue") +
+  scale_x_continuous(breaks = seq(from = 1, to = 15, by = 1),
+                     expand = c(0,0)) +
+  geom_text(aes(x = DayNumber,
+                y = reorder(CohortGroup, desc(CohortGroup)),
+                label = Label), col = "white") +
+  mdthemes::md_theme_gray() +
+  labs(
+    title = "**Daily User Retention VIX-Backend-Investree**",
+    caption = "*Data: Cohort & user retention (Source: google analytis)*", 
+    x = "D-th Day",
+    y = "Cohort Group"
+  )
+```
+
+### Cohort Fullstack Investree
+
+```{r}
+# plotting heatmap
+ggplot(plot_fs_investree) +
+  geom_raster(aes(x = DayNumber,
+                  y = reorder(CohortGroup, desc(CohortGroup)),
+                  fill = Retention)) +
+  scale_fill_continuous(guide = FALSE, type = "gradient",
+                        low = "deepskyblue", high = "darkblue") +
+  scale_x_continuous(breaks = seq(from = 1, to = 15, by = 1),
+                     expand = c(0,0)) +
+  geom_text(aes(x = DayNumber,
+                y = reorder(CohortGroup, desc(CohortGroup)),
+                label = Label), col = "white") +
+  mdthemes::md_theme_gray() +
+  labs(
+    title = "**Daily User Retention VIX-Fullstack-Investree**",
+    caption = "*Data: Cohort & user retention (Source: google analytis)*", 
+    x = "D-th Day",
+    y = "Cohort Group"
+  )
+```
+
+### Cohort Campaign Performance Jackmall
+
+```{r}
+# plotting heatmap
+ggplot(plot_cp_jackmall) +
+  geom_raster(aes(x = DayNumber,
+                  y = reorder(CohortGroup, desc(CohortGroup)),
+                  fill = Retention)) +
+  scale_fill_continuous(guide = FALSE, type = "gradient",
+                        low = "deepskyblue", high = "darkblue") +
+  scale_x_continuous(breaks = seq(from = 1, to = 15, by = 1),
+                     expand = c(0,0)) +
+  geom_text(aes(x = DayNumber,
+                y = reorder(CohortGroup, desc(CohortGroup)),
+                label = Label), col = "white") +
+  mdthemes::md_theme_gray() +
+  labs(
+    title = "**Daily User Retention VIX-Campaign Digital Performance-Jackmall**",
+    caption = "*Data: Cohort & user retention (Source: google analytis)*", 
+    x = "D-th Day",
+    y = "Cohort Group"
+  )
+```
+
+### Cohort Big Data Analytics Kimia Farma
+
+```{r}
+# plotting heatmap
+ggplot(plot_bda_kimiafarma) +
+  geom_raster(aes(x = DayNumber,
+                  y = reorder(CohortGroup, desc(CohortGroup)),
+                  fill = Retention)) +
+  scale_fill_continuous(guide = FALSE, type = "gradient",
+                        low = "deepskyblue", high = "darkblue") +
+  scale_x_continuous(breaks = seq(from = 1, to = 15, by = 1),
+                     expand = c(0,0)) +
+  geom_text(aes(x = DayNumber,
+                y = reorder(CohortGroup, desc(CohortGroup)),
+                label = Label), col = "white") +
+  mdthemes::md_theme_gray() +
+  labs(
+    title = "**Daily User Retention VIX-Big Data Analysis-Kimia Farma**",
+    caption = "*Data: Cohort & user retention (Source: google analytis)*", 
+    x = "D-th Day",
+    y = "Cohort Group"
+  )
+```
+
+### Cohort SEO Niagahoster
+
+```{r}
+# plotting heatmap
+ggplot(plot_seo_niagahoster) +
+  geom_raster(aes(x = DayNumber,
+                  y = reorder(CohortGroup, desc(CohortGroup)),
+                  fill = Retention)) +
+  scale_fill_continuous(guide = FALSE, type = "gradient",
+                        low = "deepskyblue", high = "darkblue") +
+  scale_x_continuous(breaks = seq(from = 1, to = 15, by = 1),
+                     expand = c(0,0)) +
+  geom_text(aes(x = DayNumber,
+                y = reorder(CohortGroup, desc(CohortGroup)),
+                label = Label), col = "white") +
+  mdthemes::md_theme_gray() +
+  labs(
+    title = "**Daily User Retention VIX-SEO-Niagahoster**",
+    caption = "*Data: Cohort & user retention (Source: google analytis)*", 
+    x = "D-th Day",
+    y = "Cohort Group"
+  )
+```

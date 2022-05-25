@@ -1,0 +1,12 @@
+---
+title: "Feature"
+author: "Fajar Nugroho"
+---
+
+# Feature
+
+-   [x] Daily
+
+-   [ ] Weekly
+
+-   [ ] Monthly
