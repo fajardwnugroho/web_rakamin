@@ -9,7 +9,7 @@ execute:
 
 # This web is just for monitoring several analytics feature
 
-# Feature
+# Feature Log
 
 -   [x] Daily
 
