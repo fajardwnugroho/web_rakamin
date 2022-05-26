@@ -16,8 +16,6 @@ website:
             text: Cohort Weekly
           - href: monthly.qmd
             text: Cohort Monthly
-      - href: feature.qmd
-        text: Feature Log
 
 format:
   html:

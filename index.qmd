@@ -8,3 +8,11 @@ execute:
 ---
 
 # This web is just for monitoring several analytics feature
+
+# Feature
+
+-   [x] Daily
+
+-   [ ] Weekly
+
+-   [ ] Monthly
