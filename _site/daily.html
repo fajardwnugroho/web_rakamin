@@ -75,15 +75,23 @@ ul.task-list{list-style: none;}
   <li class="nav-item">
     <a class="nav-link" href="./index.html">Home</a>
   </li>  
-  <li class="nav-item">
-    <a class="nav-link active" href="./daily.html" aria-current="page">Cohort Daily</a>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-cohort" role="button" data-bs-toggle="dropdown" aria-expanded="false">Cohort</a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-cohort">    
+        <li>
+    <a class="dropdown-item" href="./daily.html">
+ <span class="dropdown-text">Cohort Daily</span></a>
   </li>  
-  <li class="nav-item">
-    <a class="nav-link" href="./weekly.html">Cohort Weekly</a>
+        <li>
+    <a class="dropdown-item" href="./weekly.html">
+ <span class="dropdown-text">Cohort Weekly</span></a>
   </li>  
-  <li class="nav-item">
-    <a class="nav-link" href="./monthly.html">Cohort Monthly</a>
+        <li>
+    <a class="dropdown-item" href="./monthly.html">
+ <span class="dropdown-text">Cohort Monthly</span></a>
   </li>  
+    </ul>
+  </li>
   <li class="nav-item">
     <a class="nav-link" href="./feature.html">Feature Log</a>
   </li>  

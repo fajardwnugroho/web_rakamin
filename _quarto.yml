@@ -8,12 +8,14 @@ website:
     left:
       - href: index.qmd
         text: Home
-      - href: daily.qmd
-        text: Cohort Daily
-      - href: weekly.qmd
-        text: Cohort Weekly
-      - href: monthly.qmd
-        text: Cohort Monthly
+      - text: Cohort
+        menu: 
+          - href: daily.qmd
+            text: Cohort Daily
+          - href: weekly.qmd
+            text: Cohort Weekly
+          - href: monthly.qmd
+            text: Cohort Monthly
       - href: feature.qmd
         text: Feature Log
 
