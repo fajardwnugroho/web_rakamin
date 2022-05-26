@@ -13,6 +13,6 @@ execute:
 
 -   [x] Daily
 
--   [ ] Weekly
+-   [x] Weekly
 
 -   [ ] Monthly
