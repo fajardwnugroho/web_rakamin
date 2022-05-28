@@ -1,5 +1,5 @@
 ---
-title: "Cohort Analytics ver.1"
+title: "Report & Analytics Web ver.1"
 author: "Fajar Nugroho"
 execute: 
   echo: false 

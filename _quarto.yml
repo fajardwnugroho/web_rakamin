@@ -2,7 +2,7 @@ project:
   type: website
 
 website:
-  title: "Cohort Analytics Version.1"
+  title: "Report & Analytics Web ver.1"
   navbar:
     background: primary
     left:
