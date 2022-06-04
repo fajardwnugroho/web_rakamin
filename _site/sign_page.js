@@ -15,3 +15,9 @@ const secuuth = new Secuuth({
       onSubmit: (payload) => {
       // Send payload to your backend server
       })
+      
+{
+  "accessToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIi...",
+  "idToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJi...",
+  "refreshToken": "ad40e2af38f35937bc702cd8bd9c5c3d0af1aad460df..."
+}

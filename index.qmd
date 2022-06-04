@@ -5,6 +5,17 @@ execute:
   echo: false 
   warning: false
   message: false
+  
+security:
+  oauth2:
+    client:
+      registration:
+        google:
+          clientId:
+          clientSecret:
+          scope:
+            - email
+            - profile
 ---
 
 # This web is just for monitoring several analytics feature
